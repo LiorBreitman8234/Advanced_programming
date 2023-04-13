@@ -21,3 +21,71 @@ quit
 quit
 
 quit
+ls
+echo 1
+quit
+echo 1
+echo $person
+$person = this
+echo $person
+$person = that
+echo $person
+quit
+quit
+quit
+ls
+ls -la
+cat .commands
+quit
+ls
+ls -la
+ls *.c
+quit
+ls
+$person = lior
+echo $person
+quit
+quit
+$person = lior
+$person = lior
+$person = lior
+$person = lior
+$person = lior
+$person = lior
+quit
+quit
+$person = lior
+$money = 10
+echo $person
+$person = lior
+$money = dollar
+quit
+$person = lior
+$person = lior
+$money = shekel
+quit
+$person = lior
+$shekel = dollar
+echo $person
+echo $money
+quit
+$person = lior
+quit
+quit
+$person = lior
+$money = 1
+quit
+$perons = 10
+$person = lior
+qui
+quit
+quit
+$person = lior
+$money = 10
+quit
+quit
+quit
+read person
+echo $person
+quit
+quit

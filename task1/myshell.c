@@ -7,6 +7,9 @@
 #include "unistd.h"
 #include <string.h>
 
+#include "history.h"
+#include "variable.h"
+
 void setGreeting(char* greeting, char* savein){
     int i = 0;
     while(i < strlen(greeting))
@@ -35,81 +38,6 @@ void parse_command(char* command,int comm_len, int* piping, int* amount, char** 
     *(amount) = i;
 }
 
-void get_n_line_from_end(int fd, int n,char* line)
-{
-    off_t file_size,curr_pos;
-    char current;
-    file_size = lseek(fd,0,SEEK_END);
-    curr_pos = file_size -1;
-    if(file_size == 0)
-    {
-        printf("no prev commands\n");
-        return;
-    }
-    int counter = 0;
-    while(curr_pos > 0)
-    {
-        lseek(fd,curr_pos,SEEK_SET);
-        if(read(fd,&current, 1) == -1)
-        {
-            perror("read() error:");
-            exit(1);
-        }
-
-        if(current == '\n')
-        {
-            if(counter != n)
-            {
-                counter++;
-            }
-            else
-            {
-                if(read(fd,&current, 1) == -1)
-                {
-                    perror("read() error:");
-                    exit(1);
-                }
-                int i = 0;
-                while(current != '\n')
-                {
-                    line[i] = current;
-                    i++;
-                    if(read(fd,&current, 1) == -1)
-                    {
-                        perror("read() error:");
-                        exit(1);
-                    }
-                }
-                line[i] = '\0';
-                break;
-            }
-        }
-        curr_pos--;
-    }
-}
-
-typedef struct{
-    char* title;
-    char* value;
-} var;
-
-void freeVars(var* vars, int amount)
-{
-    for(int i =0; i < amount;i++)
-    {
-        free(vars[i].title);
-        free(vars[i].value);
-    }
-
-}
-
-void printVars(var* vars, int amount)
-{
-    for(int i = 0; i < amount;i++)
-    {
-        printf("title: %s value:%s \n",vars[i].title,vars[i].value);
-    }
-}
 
 void sigint_handler(int signum)
 {
@@ -123,15 +51,16 @@ char command[1024];
 char *token;
 int i;
 char *outfile;
-int fd, amper, redirect ,redirect_err, redirect_exist, retid, status, argc1,piping,size_comm;
+int fd, amper, redirect ,redirect_err, redirect_exist, status, argc1, piping, size_comm;
 int* p_pipe = &piping;
 int fildes[2];
 char *argv1[10], *argv2[10];
 char* commands_file = ".commands";
 int comm_fd = -2;
 
-var* variables;
+var* variables = malloc(sizeof(var));
 int amount_vars = 0;
+int* p_amvars = &amount_vars;
 
 int last_comm_stat = 0;
 
@@ -152,37 +81,17 @@ while (1)
         exit(1);
     }
     printf("%s: ",greeting);
-    char c = getchar();
-    if (c == '\033') { // if the first value is esc
-        getchar(); // skip the [
-        switch(getchar()) { // the real value
-            case 'A':
-                printf("up\n");
-                break;
-            case 'B':
-                printf("down\n");
-                break;
-        }
-    }
-    else
-    {
-        ungetc(c, stdin);
-        fgets(command, 1024, stdin);
-        command[strlen(command) - 1] = '\0';
-        piping = 0;
-        size_comm = strlen(command);
-        /* Saving command to history file*/
-        int written_to_file = 0;
-        if(strcmp("!!",command))
-        {
-            while(written_to_file != size_comm)
-            {
-                written_to_file += write(comm_fd,command,size_comm);
-            }
-            write(comm_fd,"\n",1);
-        }
-    }
+    fgets(command, 1024, stdin);
+    command[strlen(command) - 1] = '\0';
+    piping = 0;
+    size_comm = strlen(command);
     
+    /* Saving command to history file*/
+    if(strcmp("!!",command))
+    {
+        write_to_history(comm_fd,command);
+    }
+
     
 
     /* parse command line */
@@ -193,7 +102,13 @@ while (1)
     if (argv1[0] == NULL){
         continue;
     }
-        
+
+    /* Quit */
+    if(argc1 == 1 && !strcmp(argv1[0],"quit"))
+    {
+        break;
+    }
+    
     /* repeat last command*/
     char prev_comm[512];
     if(!strcmp(argv1[0],"!!")){
@@ -201,11 +116,7 @@ while (1)
         parse_command(prev_comm,strlen(prev_comm),p_pipe,p_argc1,argv1);
     }
 
-    /* Quit */
-    if(argc1 == 1 && !strcmp(argv1[0],"quit"))
-    {
-        break;
-    }
+    
 
     /* echo varities*/
     if(!strcmp("echo",argv1[0]))
@@ -215,13 +126,10 @@ while (1)
             printf("%d\n",last_comm_stat);
         }
         else if(argv1[1][0] == '$'){
-            //printVars(variables,amount_vars);
-            //printf("searching for variable\n");
             char str[strlen(argv1[1]-1)];
             strcpy(str,argv1[1]+1);
             for(int i =0; i < amount_vars;i++)
             {
-                //printf("title:%s value: %s\n",variables[i].title,variables[i].value);
                 if(!strcmp(variables[i].title,str))
                 {
                     printf("%s",variables[i].value);
@@ -231,7 +139,6 @@ while (1)
             printf("\n");
         }
         else{
-            printf("%d\n",argc1);
             for(int i = 1; i < argc1; i++)
             {
                 printf("%s ",argv1[i]);
@@ -251,7 +158,7 @@ while (1)
                     perror("getcwd error");
                     exit(1);
                 }
-                for(int i = strlen(cwd);i--;i == 0)
+                for(int i = strlen(cwd);i > 0;i--)
                 {
                     if(cwd[i] == '/')
                     {
@@ -279,10 +186,10 @@ while (1)
     {
         setGreeting(argv1[2],greeting);
     }
+
     /* Add variable */
     if(argc1 == 3 && !strcmp(argv1[1],"=") && argv1[0][0] == '$')
     {
-        var new_var;
         char* title = (char*)malloc(sizeof(char)*strlen(argv1[0]));
         char* value = (char*)malloc(sizeof(char)*strlen(argv1[2]+1));
         int i = 0;
@@ -301,36 +208,9 @@ while (1)
         }
         value[i] = '\0';
 
-        if(amount_vars == 0)
-        {
-            new_var.title = title;
-            new_var.value = value;
-            variables = malloc(sizeof(var));
-            variables[0] = new_var;
-            amount_vars++;
-        }
-        else
-        {
-            int flag = 1;
-            for(int i =0; i < amount_vars;i++)
-            {
-                if(!strcmp(variables[i].title,title))
-                {
-                    flag = 0;
-                    variables[i].value = value;
-                    free(title);
-                }
-            }
-            if(flag)
-            {
-                new_var.title = title;
-                new_var.value = value;
-                variables = realloc(variables,(amount_vars+1)*sizeof(var));
-                variables[amount_vars++] = new_var;
-            }
-        }
-        //printVars(variables,amount_vars);
-
+        addVar(&variables,title,value,p_amvars);
+        printf("%d\n", amount_vars);
+        printVars(variables,amount_vars);
     }
 
     /* Read command */
@@ -347,21 +227,9 @@ while (1)
                 break;
             }
         }
-        var new_var;
-        new_var.title = (char*)malloc(sizeof(char)*strlen(argv1[1]));
-        new_var.value = (char*)malloc(sizeof(char)*strlen(value));
-        strcpy(new_var.title,argv1[1]);
-        strcpy(new_var.value,value);
-        if(amount_vars == 0)
-        {
-            variables = malloc(sizeof(var));
-            variables[amount_vars++] = new_var;
-        }
-        else
-        {
-            variables = realloc(variables,(amount_vars+1)*sizeof(var));
-            variables[amount_vars++] = new_var;
-        }        
+        addVar(&variables,argv1[1],value,p_amvars);
+
+        
     }
     /* Does command contain pipe */
     if (piping) {
@@ -463,7 +331,7 @@ while (1)
     /* parent continues over here... */
     /* waits for child to exit if required */
     if (amper == 0)
-        retid = wait(&status);
+        last_comm_stat = wait(&status);
 }
 if(amount_vars > 0)
 {
