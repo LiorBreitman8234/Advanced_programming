@@ -8,40 +8,89 @@
 #include "unistd.h"
 #include <string.h>
 
-void freeVars(var* vars, int amount)
+void freeVars(var* vars)
 {
-    for(int i =0; i < amount;i++)
+    while(vars != NULL)
     {
-        free(vars[i].title);
-        free(vars[i].value);
+        var* temp = vars;
+        vars = temp->next;
+        free(temp->value);
+        free(temp->title);
+        free(temp);
     }
 
 }
 
-void printVars(var* vars, int amount)
+void printVars(var* vars)
 {
-    for(int i = 0; i < amount;i++)
-    {
-        printf("%d: title: %s value:%s \n",i,vars[i].title,vars[i].value);
+        while (vars != NULL) {
+        printf("%s = %s\n", vars->title, vars->value);
+        vars = vars->next;
     }
 }
 
-void addVar(var** vars, char* title, char* value, int* amount)
+void addVar(var** vars,char* title, char* value)
 {
-    for(int i =0; i < (*amount);i++)
+    var* current = *vars;
+    while(current != NULL)
     {
-        if(!strcmp(vars[i]->title,title))
+        if(!strcmp(current->title,title))
         {
-            vars[i]->value = value;
+            current->value = value;
             return;
         }
+        current = current->next;
     }
-    var new_var;
-    new_var.title = (char*)malloc(strlen(title));
-    new_var.value = (char*)malloc(strlen(value));
-    strcpy(new_var.title,title);
-    strcpy(new_var.value,value);
-    *vars = realloc(*vars,sizeof(var)*((*amount)+1));
-    (*vars)[(*amount)++] = new_var;
+
+    var* new_node = malloc(sizeof(var));
+    if(new_node == NULL)
+    {
+        printf("error allocating");
+        exit(1);
+    }
+
+    new_node->title = malloc(strlen(title)+1);
+    if(new_node->title == NULL)
+    {
+        printf("error allocating");
+        exit(1);
+    }
+    strcpy(new_node->title,title);
+
+
+    new_node->value = malloc(strlen(value)+1);
+    if(new_node->value == NULL)
+    {
+        printf("error allocating");
+        exit(1);
+    }
+    strcpy(new_node->value,value);
+    new_node->next = NULL;
+
+    if(*vars == NULL)
+    {
+        *vars = new_node;
+    }
+    else{
+        current = *vars;
+        while(current->next != NULL)
+        {
+            current = current->next;
+        }
+        current->next = new_node;
+    }
     
+}
+
+void findPrintVar(var* vars,char* title)
+{
+    while(vars != NULL)
+    {
+        if(!strcmp(title,vars->title))
+        {
+            printf("%s",vars->value);
+        }
+        vars = vars->next;
+    }
+    printf("\n");
 }

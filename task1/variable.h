@@ -1,12 +1,15 @@
 #ifndef VARIABLE_H
 #define VARIABLE_H
 
-typedef struct{
+typedef struct var{
     char* title;
     char* value;
+    struct var* next;
 } var;
 
-void freeVars(var* vars, int amount);
-void printVars(var* vars, int amount);
-void addVar(var** vars, char* title, char* value, int* amount);
+
+void freeVars(var* vars);
+void printVars(var* vars);
+void addVar(var** vars,char* title, char* value);
+void findPrintVar(var* vars,char* title);
 #endif

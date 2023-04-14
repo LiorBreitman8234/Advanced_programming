@@ -10,34 +10,21 @@
 #include "history.h"
 #include "variable.h"
 
-void setGreeting(char* greeting, char* savein){
-    int i = 0;
-    while(i < strlen(greeting))
-    {
-        savein[i] = greeting[i];
-        i++;
-    }
-    savein[i] = '\0';
-}
+char* COMM_FILE = ".commands";
+int COMM_FD = 1000;
+int LAST_STAT = 0;
+var* VARS;
 
-void parse_command(char* command,int comm_len, int* piping, int* amount, char** parts)
-{
-    int i = 0;
-    char * token = strtok (command," ");
-    while (token != NULL)
-    {
-        parts[i] = token;
-        token = strtok (NULL, " ");
-        i++;
-        if (token && ! strcmp(token, "|")) {
-            (*piping) = 1;
-            break;
-        }
-    }
-    parts[i] = NULL;
-    *(amount) = i;
-}
+void my_echo(char* argv[],int* amount);
+int count_commands(char* line);
+void single_command(char* argv[],int* amount);
+void procces_command_line(char* line);
 
+void setGreeting(char* greeting, char* savein);
+
+void parse_command(char* command, int* amount, char** parts);
+
+void my_cd(char* argv[],int amount);
 
 void sigint_handler(int signum)
 {
@@ -58,28 +45,28 @@ char *argv1[10], *argv2[10];
 char* commands_file = ".commands";
 int comm_fd = -2;
 
-var* variables = malloc(sizeof(var));
+VARS = NULL;
 int amount_vars = 0;
 int* p_amvars = &amount_vars;
 
-int last_comm_stat = 0;
+//int last_comm_stat = 0;
 
 char greeting[128];
 setGreeting("hello",greeting);
-
 signal(SIGINT,sigint_handler);
 
 while (1)
 {   
     if(comm_fd == -2)
     {
-        comm_fd = open(commands_file,O_CREAT|O_RDWR|O_APPEND,S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+        comm_fd = open(COMM_FILE,O_CREAT|O_RDWR|O_APPEND,S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
     }   
     if(comm_fd == -1)
     {
         perror("open() error:");
         exit(1);
     }
+    dup2(comm_fd,COMM_FD);
     printf("%s: ",greeting);
     fgets(command, 1024, stdin);
     command[strlen(command) - 1] = '\0';
@@ -87,7 +74,7 @@ while (1)
     size_comm = strlen(command);
     
     /* Saving command to history file*/
-    if(strcmp("!!",command))
+    if(strcmp("!!",command) || !(size_comm == 0))
     {
         write_to_history(comm_fd,command);
     }
@@ -96,7 +83,7 @@ while (1)
 
     /* parse command line */
     int* p_argc1 = &argc1;
-    parse_command(command,size_comm,p_pipe,p_argc1,argv1);
+    parse_command(command,p_argc1,argv1);
 
     /* Is command empty */
     if (argv1[0] == NULL){
@@ -113,7 +100,7 @@ while (1)
     char prev_comm[512];
     if(!strcmp(argv1[0],"!!")){
         get_n_line_from_end(comm_fd,1,prev_comm);
-        parse_command(prev_comm,strlen(prev_comm),p_pipe,p_argc1,argv1);
+        parse_command(prev_comm,p_argc1,argv1);
     }
 
     
@@ -121,65 +108,12 @@ while (1)
     /* echo varities*/
     if(!strcmp("echo",argv1[0]))
     {
-        if(argc1 > 1 && !strcmp(argv1[1],"$?"))
-        {
-            printf("%d\n",last_comm_stat);
-        }
-        else if(argv1[1][0] == '$'){
-            char str[strlen(argv1[1]-1)];
-            strcpy(str,argv1[1]+1);
-            for(int i =0; i < amount_vars;i++)
-            {
-                if(!strcmp(variables[i].title,str))
-                {
-                    printf("%s",variables[i].value);
-                    break;
-                }
-            }
-            printf("\n");
-        }
-        else{
-            for(int i = 1; i < argc1; i++)
-            {
-                printf("%s ",argv1[i]);
-            }
-            printf("\n");
-        }
+        my_echo(argv1,p_argc1);
         continue;
     }
     /* Change directory*/
     if(!strcmp(argv1[0],"cd")){
-        if(argc1 > 1)
-        {
-            if(!strcmp(argv1[1],".."))
-            {
-                char cwd[512];
-                if(getcwd(cwd,sizeof(cwd)) == NULL){
-                    perror("getcwd error");
-                    exit(1);
-                }
-                for(int i = strlen(cwd);i > 0;i--)
-                {
-                    if(cwd[i] == '/')
-                    {
-                        cwd[i] = '\0';
-                        break;
-                    }
-                }
-                if(chdir(cwd) != 0)
-                {
-                    perror("chdir() error");
-                    exit(1);
-                }
-            }
-            else {
-                if(chdir(argv1[1]) != 0)
-                {
-                    perror("chdir() error");
-                    exit(1);
-                }
-            }
-        }
+        my_cd(argv1,argc1);
     }
     /* Change prompt*/
     if(argc1 == 3 && !strcmp(argv1[1],"=") && !strcmp("prompt",argv1[0]))
@@ -190,8 +124,8 @@ while (1)
     /* Add variable */
     if(argc1 == 3 && !strcmp(argv1[1],"=") && argv1[0][0] == '$')
     {
-        char* title = (char*)malloc(sizeof(char)*strlen(argv1[0]));
-        char* value = (char*)malloc(sizeof(char)*strlen(argv1[2]+1));
+        char* title = (char*)malloc(sizeof(char)*strlen(argv1[0])+1);
+        char* value = (char*)malloc(sizeof(char)*strlen(argv1[2])+1);
         int i = 0;
         while(i+1 < strlen(argv1[0]))
         {
@@ -208,9 +142,10 @@ while (1)
         }
         value[i] = '\0';
 
-        addVar(&variables,title,value,p_amvars);
-        printf("%d\n", amount_vars);
-        printVars(variables,amount_vars);
+        addVar(&VARS,title,value);
+        
+        free(title);
+        free(value);
     }
 
     /* Read command */
@@ -219,16 +154,7 @@ while (1)
         char value[128];
         fgets(value, 128, stdin);
         value[strlen(value)-1] = '\0';
-        for(int i =0;i < amount_vars;i++)
-        {
-            if(!strcmp(variables[i].title,argv1[1]))
-            {
-                variables[i].value = value;
-                break;
-            }
-        }
-        addVar(&variables,argv1[1],value,p_amvars);
-
+        addVar(&VARS,argv1[1],value);
         
     }
     /* Does command contain pipe */
@@ -318,12 +244,12 @@ while (1)
             /* standard input now comes from pipe */ 
             if(execvp(argv2[0], argv2) == -1)
             {
-                last_comm_stat = errno;
+                LAST_STAT = errno;
             }
         }   
         else{
             if(execvp(argv1[0], argv1) == -1){
-                last_comm_stat = errno;
+                LAST_STAT = errno;
             }
         }
             
@@ -331,12 +257,165 @@ while (1)
     /* parent continues over here... */
     /* waits for child to exit if required */
     if (amper == 0)
-        last_comm_stat = wait(&status);
+        wait(&status);
 }
-if(amount_vars > 0)
-{
-    freeVars(variables,amount_vars);
-    free(variables);
+    if(amount_vars > 0){
+        freeVars(VARS);
+    }
+
 }
 
+void my_cd(char* argv[],int amount)
+{
+    if(amount > 1){
+        if(!strcmp(argv[1],"..")){
+            char cwd[512];
+            if(getcwd(cwd,sizeof(cwd)) == NULL){
+                    perror("getcwd error");
+                    return;
+            }
+            for(int i = strlen(cwd);i > 0;i--){
+                if(cwd[i] == '/')
+                {
+                    cwd[i] = '\0';
+                    break;
+                }
+            }
+            if(chdir(cwd) != 0){
+                perror("chdir() error");
+                return;
+            }
+        }
+        else {
+            if(chdir(argv[1]) != 0){
+                perror("chdir() error");
+                    return;
+                }
+            }
+        }
+
+}
+void my_echo(char* argv[],int* amount)
+{
+    if((*amount) > 1 && !strcmp(argv[1],"$?"))
+    {
+        printf("%d\n",LAST_STAT);
+    }
+    else if(argv[1][0] == '$'){
+            char str[strlen(argv[1]-1)];
+            strcpy(str,argv[1]+1);
+            findPrintVar(VARS,str);
+    }
+    else{
+        for(int i = 1; i < (*amount); i++)
+        {
+            printf("%s ",argv[i]);
+        }
+        printf("\n");
+    }
+}
+
+int count_commands(char* line)
+{
+    int num = 1;
+    for(int i =0;i< strlen(line);i++)
+    {
+        if(line[i] == '|')
+        {
+            num++;
+        }
+    }
+    return num;
+}
+
+void single_command(char* argv[],int* amount)
+{
+    /* Is command empty */
+    if (argv[0] == NULL){
+    }
+    
+    /* Quit */
+    if((*amount) == 1 && !strcmp(argv[0],"quit"))
+    {
+        exit(1);
+    }
+
+    /* repeat last command*/
+    char prev_comm[512];
+    if(!strcmp(argv[0],"!!")){
+        get_n_line_from_end(COMM_FD,1,prev_comm);
+        parse_command(prev_comm,amount,argv);
+    }
+
+
+     /* echo varities*/
+    if(!strcmp("echo",argv[0]))
+    {
+        if((*amount)  > 1 && !strcmp(argv[1],"$?"))
+        {
+            printf("%d\n",LAST_STAT);
+        }
+        else if(argv[1][0] == '$'){
+            char str[strlen(argv[1]-1)];
+            strcpy(str,argv[1]);
+            findPrintVar(VARS,str);
+        }
+        else{
+            for(int i = 1; i < (*amount) ; i++)
+            {
+                printf("%s ",argv[i]);
+            }
+            printf("\n");
+        }
+    }
+    
+
+}
+
+void procces_command_line(char* line)
+{
+    if(!strncmp("if ",line,3))
+    {
+        /* if statment*/
+        //if_proccess(line+3);
+        return;
+    }
+    int num_commands = count_commands(line);
+    if(num_commands == 1)
+    {
+        char* argv[10];
+        int amount = 0;
+        int* p_am = &amount;
+        //parse(line, p_am,argv);
+        single_command(argv,p_am);
+
+    }
+}
+
+void setGreeting(char* greeting, char* savein){
+    int i = 0;
+    while(i < strlen(greeting))
+    {
+        savein[i] = greeting[i];
+        i++;
+    }
+    savein[i] = '\0';
+}
+
+void parse_command(char* command, int* amount, char** parts)
+{
+    int i = 0;
+    char * token = strtok (command," ");
+    while (token != NULL)
+    {
+        parts[i] = token;
+        token = strtok (NULL, " ");
+        i++;
+        // if (token && ! strcmp(token, "|")) {
+        //     (*piping) = 1;
+        //     break;
+        // }
+    }
+    parts[i] = NULL;
+    *(amount) = i;
 }
