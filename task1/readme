@@ -1,0 +1,38 @@
+This program is a command-line interpreter or shell that allows users to enter commands to interact with the operating system. The program reads input from the user and parses it into individual commands that can be executed by the system. The program supports several built-in commands and also allows users to execute external programs.
+
+The program has the following features:
+
+Support for input/output redirection
+Support for background processes
+Command history using a separate file
+Support for variables
+Customizable greeting
+Built-in commands: cd, echo, and quit
+The program consists of several source code files:
+- myshell.c the main function.
+- history.h and history.c: Contains functions for reading and writing command history to a file.
+- variable.h and variable.c: Contains functions for creating, adding, getting, and freeing variables.
+
+to compile the program, simply run "make" in a terminal window (make sure to be in the right directory)
+
+to then run it, you should run "./myshell" in a terminal
+
+missing section:
+- No way to move using up and down keys :(
+
+other then that every thing works.
+
+to run a if-else query, make sure it in the following syntax:
+if <command> (enter)
+then (enter)
+<command> (enter)
+else (enter)
+<command>
+
+Improtent:
+For some reason the code doesn't work without prining the commands before executing them, so for it to work i kept the printing.
+
+assumptions: 
+- no 2 redirects on the same file
+- no nested ifs
+
