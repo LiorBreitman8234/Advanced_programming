@@ -1,6 +1,6 @@
-# Project README
+# Project ThreadPool
 
-This project includes the `main.cpp` file, which demonstrates the usage of a thread pool and dynamic loading of a shared library (`libCodec.so`). The program reads input data from a file or standard input, applies encryption or decryption based on the provided key, and writes the result to an output file or standard output.
+This project is used to implement a thread pool in c++. It includes the `main.cpp` file, which demonstrates the usage of a thread pool and dynamic loading of a shared library (`libCodec.so`). The program reads input data from a file or standard input, applies encryption or decryption based on the provided key, and writes the result to an output file or standard output. The encryption/Decryption takes about 5 seconds for 1000 chars.
 
 ## Prerequisites
 
