@@ -20,7 +20,7 @@ public:
 
     void wait();
     bool stop;
-
+    std::ofstream log;
 private:
     std::vector<std::thread> threads;
     std::queue<std::function<void()>> tasks;

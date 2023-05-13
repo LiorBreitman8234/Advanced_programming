@@ -2,6 +2,12 @@
 
 CryptThreadPool::CryptThreadPool(size_t num_threads): stop(false)
 {
+    this->log = std::ofstream(".log.txt",std::ofstream::trunc);
+    if(!log.is_open())
+    {
+        std::cout << "error logging file" << std::endl;
+        exit(1);
+    }
     for(size_t i =0; i < num_threads;i++)
     {
         threads.emplace_back([this](){
@@ -11,13 +17,13 @@ CryptThreadPool::CryptThreadPool(size_t num_threads): stop(false)
                 std::unique_lock<std::mutex> lock(this->queue_mutex);
                 this->cv.wait(lock,[this](){return this->stop || !this->tasks.empty();});
                 if (this->stop && this->tasks.empty()){
-                            std::cout << "thread " <<std::this_thread::get_id() << " did " << task_counter << " tasks!" << std::endl;
+                            this->log << "thread " <<std::this_thread::get_id() << " did " << task_counter << " tasks!\n";
                             return;
                         }
                 task = std::move(this->tasks.front());
                 this->tasks.pop();
                 task();
-                std::cout << std::this_thread::get_id() << "did task " << ++task_counter << std::endl;
+                task_counter++;
             }
             
         });
@@ -41,10 +47,8 @@ void CryptThreadPool::enqueue(const std::function<void()>& task)
     {
         std::unique_lock<std::mutex> lock(this->queue_mutex);
         tasks.push(task);
-        std::cout << "added task "<< std::endl;
     }
     cv.notify_one();
-    std::cout << "notified" << std::endl;
 }
 
 void CryptThreadPool::wait(){

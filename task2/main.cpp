@@ -4,11 +4,11 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <thread>
-#include <mutex>
 #include <unistd.h>
 #include "data_chunk.h"
 #include <cstring>
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 
 int print_index = 0;
@@ -23,7 +23,6 @@ void print_thread(DataChunk* chunk, int fd){
     while(written != len)
     {
         written += write(fd,chunk->buffer,len);
-        std::cout << std::endl;
     }
     print_index++;
 }
@@ -34,25 +33,37 @@ void func_thread(DataChunk* chunk, void (*function)(char*,int), int key)
     chunk->status = 1;
 }
 
-int main() {
+void print_use()
+{
+    std::cout << "Use example:" << std::endl;
+    std::cout << "1. Coder key {-e | -d} < input_file > output_file" << std::endl;
+    std::cout << "2. pipe |  Coder key {-e | -d} > output_file" << std::endl;
+    std::cout << "3. cat file | Coder key {-e | -d} > output_file" << std::endl;
+}
 
+int main(int argc, char** argv) {
     std::vector<DataChunk*> toChange;
     std::vector<DataChunk*> toPrint;
-    int in_fd = open("/home/bravo8234/CLionProjects/advanced_prog_2/test_func.txt",O_RDONLY);
-    if(in_fd == -1)
+    long key;
+    std::string flag;
+    std::string in_file;
+    std::string out_file;
+    int in_fd = 0;
+    int out_fd = 1;
+    if(argc < 3)
     {
-        perror("open");
+        std::cout << "wrong usage!" << std::endl;
+        print_use();
         return 1;
     }
-
-    int out_fd = open("/home/bravo8234/CLionProjects/advanced_prog_2/test_func_next.txt",O_RDWR | O_CREAT | O_TRUNC,S_IRWXU|S_IRWXG|S_IRWXO);
-    if(out_fd== -1)
+    else
     {
-        perror("open");
-        return 1;
+        key = strtol(argv[1],nullptr,10);
+        flag = argv[2];
     }
 
-    void* handle = dlopen("/home/bravo8234/CLionProjects/advanced_prog_2/libCodec.so",RTLD_LAZY);
+
+    void* handle = dlopen("./libCodec.so",RTLD_LAZY);
     if(!handle){
         std::cerr << "error loading library " << dlerror() << std::endl;
         return 1;
@@ -69,20 +80,21 @@ int main() {
     if (!decrypt) {
         std::cerr << "Error getting function pointer: " << dlerror() << std::endl;
         return 1;
-    } 
-    // Create a thread pool with 4 threads
-    CryptThreadPool pool(4);
+    }
 
-    int key = 2;
-    std::string flag = "-d";
-    size_t n = -1;
+    CryptThreadPool pool(8);
+
+
+    size_t n;
     int index = 0;
     char buffer[1024] = {'\0'};
-    n = read(in_fd,buffer,15);
+    auto start = std::chrono::system_clock::now();
+    auto local_time = std::chrono::system_clock::to_time_t(start);
+    pool.log <<"staring time: " << std::ctime(&local_time) << "\n";
+    n = read(in_fd,buffer,250);
     while(n != 0)
     {   
         buffer[n] = '\0';
-        std::cout << "got buffer " << buffer << std::endl;
         toChange.push_back(new DataChunk(buffer,index++));
         std::function<void()> f;
         if(flag == "-e")
@@ -99,7 +111,7 @@ int main() {
             return 1;
         }
         memset(buffer,'\0',n);
-        n = read(in_fd,buffer,100);
+        n = read(in_fd,buffer,250);
         pool.enqueue(f);
     }
     while(!toChange.empty())
@@ -113,15 +125,17 @@ int main() {
                 int curr_index = chunk->index;
                 std::function<void()> f = std::bind(print_thread,chunk,out_fd);
                 pool.enqueue(f);
-                //decrypt(chunk->buffer,key);
                 toChange.erase(std::remove_if(toChange.begin(),toChange.end(),[&curr_index](DataChunk* inner){return inner->index==curr_index;}));
-                //write(out_fd_de,chunk->buffer,strlen(chunk->buffer));
                 break;
             }
         }
     }
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsed = end-start;
+    auto end_time = std::chrono::system_clock::to_time_t(end);
     pool.stop = true;
+    pool.log << "end time: " << std::ctime(&end_time) << '\n';
+    pool.log <<"total time: " << elapsed.count() << " s\n";
     dlclose(handle);
-    std::cout << "all finished" << std::endl;
     return 0;
 }

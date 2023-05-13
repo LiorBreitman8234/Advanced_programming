@@ -2,7 +2,7 @@ CC = g++
 CFLAGS = -std=c++11 -Wall -Wextra -pedantic
 LDFLAGS = -L. -lCodec
 
-EXEC = program
+EXEC = coder
 MAIN = main.cpp
 THREADPOOL = thread_pool.cpp
 DATACHUNK = data_chunk.cpp
