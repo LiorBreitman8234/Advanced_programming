@@ -248,7 +248,7 @@ void procces_command_line(char* line)
         return;
     }
     HEAD = parse_line(line);
-    print_list(HEAD);
+    //print_list(HEAD);
     execute_list(HEAD);
     free_list(HEAD);
     HEAD = NULL;
