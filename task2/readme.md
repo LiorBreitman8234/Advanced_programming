@@ -22,6 +22,11 @@ To compile the project, follow these steps:
    ```
 This will generate an executable named "coder"
 
+To remove the files run the command:
+```bash
+    make clean
+```
+
 ## Usage
 
 The program expects 2 command line arguments: the encryption key and flag.

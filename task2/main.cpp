@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
     auto start = std::chrono::system_clock::now();
     auto local_time = std::chrono::system_clock::to_time_t(start);
     pool.log <<"staring time: " << std::ctime(&local_time) << "\n";
-    n = read(in_fd,buffer,250);
+    n = read(in_fd,buffer,1);
     while(n != 0)
     {   
         buffer[n] = '\0';
@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
             return 1;
         }
         memset(buffer,'\0',n);
-        n = read(in_fd,buffer,250);
+        n = read(in_fd,buffer,1);
         pool.enqueue(f);
     }
     while(!toChange.empty())
