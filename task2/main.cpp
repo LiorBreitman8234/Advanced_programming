@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    CryptThreadPool pool(8);
+    CryptThreadPool pool(100);
 
 
     size_t n;
