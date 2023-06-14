@@ -53,13 +53,13 @@ void printFile(const char* path)
     printf(" %ld",fileStat.st_size);
 }
 void printTree(const char* dirPath, int indent,int lastDir) {
-    DIR* dir = opendir(dirPath);
+    DIR* dir = opendir(dirPath);//open the Dir
     if (!dir) {
         fprintf(stderr, "Error opening directory: %s\n", dirPath);
         return;
     }
 
-    struct dirent* entry;
+    struct dirent* entry;//dirent to scroll inside
     int counter = 0;
     while ((entry = readdir(dir)) != NULL) {
         counter++;
@@ -79,12 +79,6 @@ void printTree(const char* dirPath, int indent,int lastDir) {
         struct dirent* next = readdir(dir);
 
         for (int i = 0; i < indent; i++) {
-            // if(i%3 == 0)
-            // {
-            //     {
-            //         printf("│");    
-            //     }
-            // }
             if(lastDir)
             {
                 printf("   ");
@@ -147,6 +141,7 @@ void printTree(const char* dirPath, int indent,int lastDir) {
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
+        //If didnt get path, print current path
         char pwd[1024];
         if (getcwd(pwd, sizeof(pwd)) != NULL) {
             printTree(pwd,0,0);
@@ -157,6 +152,7 @@ int main(int argc, char* argv[]) {
         }
     }
     else{
+        //print path that you got
         const char* dirPath = argv[1];
         printTree(dirPath, 0,0);
     }
