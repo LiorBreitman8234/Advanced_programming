@@ -21,6 +21,10 @@ Alternatively, you can specify a different directory path as a command-line argu
 ```
 The program will recursively traverse the directory structure and print the tree representation along with file information.
 
+To remove the executable and all files created, run :
+```
+make clean
+```
 ## Features
 
 - Displays the directory tree structure with proper indentation.
